@@ -47,9 +47,12 @@ def create_stack_figure(
     p = float(result["p"])
     H_pair = float(result["H_pair"])
     first_layer_height = float(result.get("first_layer_height", D))
+    lean_half_width = float(result.get("lean_half_width", D / 2.0))
+    flat_half_width = float(result.get("flat_half_width", D / 2.0))
     nesting_depth = float(result.get("a", 0.0))
     q_L = float(result["q_L"])
     n_width = int(result["n_width"])
+    n_width_first = int(result.get("first_row_count", result.get("n_width_first", n_width)))
     n_width_tilted = int(result.get("n_width_tilted", n_width))
     n_pair = int(result["n_pair"])
     top_single_layer = int(result.get("top_single_layer", 0))
@@ -199,6 +202,7 @@ def create_full_stack_figure(result: Dict[str, float | int | str | bool]) -> go.
     H_pair = float(result["H_pair"])
     q_L = float(result["q_L"])
     n_width = int(result["n_width"])
+    n_width_first = int(result.get("first_row_count", result.get("n_width_first", n_width)))
     n_width_tilted = int(result.get("n_width_tilted", n_width))
     n_pair = int(result["n_pair"])
     top_single_layer = int(result.get("top_single_layer", 0))
@@ -293,9 +297,12 @@ def _create_realistic_stack_figure(
     p = float(result["p"])
     H_pair = float(result["H_pair"])
     first_layer_height = float(result.get("first_layer_height", D))
+    lean_half_width = float(result.get("lean_half_width", D / 2.0))
+    flat_half_width = float(result.get("flat_half_width", D / 2.0))
     nesting_depth = float(result.get("a", 0.0))
     q_L = float(result["q_L"])
     n_width = int(result["n_width"])
+    n_width_first = int(result.get("first_row_count", result.get("n_width_first", n_width)))
     n_width_tilted = int(result.get("n_width_tilted", n_width))
     n_pair = int(result["n_pair"])
     top_single_layer = int(result.get("top_single_layer", 0))
@@ -342,7 +349,7 @@ def _create_realistic_stack_figure(
         if stack_model == "base_layer_pairs":
             alpha_rad = math.radians(alpha_deg)
             tilted_floor_center_z = D / 2.0 * abs(math.sin(alpha_rad)) + SW / 2.0 * abs(math.cos(alpha_rad))
-            first_row_tilted_z = tilted_floor_center_z - 2.0 * nesting_depth
+            first_row_tilted_z = tilted_floor_center_z
             tire_index = _add_realistic_row(
                 fig,
                 tire_index,
@@ -350,7 +357,7 @@ def _create_realistic_stack_figure(
                 d,
                 SW,
                 p,
-                n_width,
+                n_width_first,
                 x,
                 first_row_tilted_z,
                 "1층 기준",
@@ -365,8 +372,9 @@ def _create_realistic_stack_figure(
                 first_tire_flat=True,
                 W_c=W_c,
                 flat_rotation=flat_tire_rotation,
-                flat_z=SW / 2.0 - 2.0 * nesting_depth,
+                flat_z=SW / 2.0,
                 y_shift=0.0,
+                y_start=flat_half_width,
             )
             pair_z_start = first_layer_height
             pair_width = n_width_tilted
@@ -408,6 +416,7 @@ def _create_realistic_stack_figure(
                 flat_rotation=flat_tire_rotation,
                 flat_z=SW / 2.0,
                 y_shift=_stack_layer_y_shift(lower_layer_number, p),
+                y_start=lean_half_width,
             )
             tire_index = _add_realistic_row(
                 fig,
@@ -431,6 +440,7 @@ def _create_realistic_stack_figure(
                 first_tire_flat=False,
                 W_c=W_c,
                 y_shift=_stack_layer_y_shift(upper_layer_number, p),
+                y_start=lean_half_width,
             )
 
         if stack_model == "base_layer_pairs" and top_single_layer:
@@ -443,7 +453,7 @@ def _create_realistic_stack_figure(
                 d,
                 SW,
                 p,
-                n_width,
+                pair_width,
                 x,
                 top_z,
                 f"{top_layer_number}층 top",
@@ -458,6 +468,7 @@ def _create_realistic_stack_figure(
                 first_tire_flat=False,
                 W_c=W_c,
                 y_shift=_stack_layer_y_shift(top_layer_number, p),
+                y_start=lean_half_width,
             )
 
         if show_edge_tires and n_edge_H > 0 and edge_columns > 0:
@@ -549,10 +560,14 @@ def _add_realistic_row(
     flat_rotation: np.ndarray | None = None,
     flat_z: float | None = None,
     y_shift: float = 0.0,
+    y_start: float | None = None,
 ) -> int:
     for width_idx in range(n_width):
         row_position = "Row 2" if row == "Row 2" or "upper" in row else "Row 1"
-        y = _row_y_position(row_position, width_idx, D, p) + y_shift
+        if y_start is None:
+            y = _row_y_position(row_position, width_idx, D, p) + y_shift
+        else:
+            y = y_start + width_idx * p
         if y < -D / 2.0 or y > W_c + D / 2.0:
             continue
         is_flat_first = first_tire_flat and width_idx == 0
